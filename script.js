@@ -1,65 +1,94 @@
+/**
+ * Air Drawing Pro - Logic Engine
+ * Developed for: Mazen (Full-stack Developer)
+ */
+
 const videoElement = document.getElementById('webcam');
 const canvasElement = document.getElementById('canvas');
 const canvasCtx = canvasElement.getContext('2d');
-
-// إعداد أبعاد الـ Canvas
-canvasElement.width = window.innerWidth;
-canvasElement.height = window.innerHeight;
+const loadingScreen = document.getElementById('loading');
+const modeText = document.getElementById('mode-text');
 
 let isDrawing = false;
 let lastX = 0;
 let lastY = 0;
 
-// دالة لمعالجة النتائج من MediaPipe
+// إعدادات الكانفاس والفرشاة
+function initCanvas() {
+    canvasElement.width = window.innerWidth;
+    canvasElement.height = window.innerHeight;
+    canvasCtx.strokeStyle = '#00f2ff'; // لون فسفوري احترافي
+    canvasCtx.lineWidth = 6;
+    canvasCtx.lineCap = 'round';
+    canvasCtx.lineJoin = 'round';
+    // تأثير توهج للخط (Glow Effect)
+    canvasCtx.shadowBlur = 10;
+    canvasCtx.shadowColor = '#00f2ff';
+}
+
+window.addEventListener('resize', initCanvas);
+initCanvas();
+
+function clearCanvas() {
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+}
+
 function onResults(results) {
-    // تنظيف إطار العمل الخاص بالتعرف على اليد (اختياري، لا نمسح لوحة الرسم هنا)
-    if (!results.multiHandLandmarks) return;
+    // إخفاء شاشة التحميل عند بدء العمل
+    if (loadingScreen) loadingScreen.style.display = 'none';
 
-    for (const landmarks of results.multiHandLandmarks) {
-        // نقطة طرف السبابة هي رقم 8، ونقطة مفصل السبابة رقم 5
-        const indexFingerTip = landmarks[8];
-        const indexFingerBase = landmarks[5];
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const landmarks = results.multiHandLandmarks[0];
         
-        // نقاط الأصابع الأخرى لتحديد هل الكف مفتوح (للمسح)
-        const middleFingerTip = landmarks[12];
-        const ringFingerTip = landmarks[16];
-        const pinkyFingerTip = landmarks[20];
+        // النقاط الأساسية (Landmarks)
+        const indexTip = landmarks[8];  // طرف السبابة
+        const indexBase = landmarks[5]; // قاعدة السبابة
+        const middleTip = landmarks[12]; // طرف الوسطى
+        const ringTip = landmarks[16];   // طرف البنصر
 
-        // تحويل الإحداثيات النسبية إلى بكسلات
-        const x = indexFingerTip.x * canvasElement.width;
-        const y = indexFingerTip.y * canvasElement.height;
+        // تحويل الإحداثيات لمقاس الشاشة
+        const x = indexTip.x * canvasElement.width;
+        const y = indexTip.y * canvasElement.height;
 
-        // 1. منطق المسح: إذا كانت جميع الأصابع أعلى من مفاصلها (اليد مفتوحة)
-        if (indexFingerTip.y < indexFingerBase.y && middleFingerTip.y < landmarks[9].y && ringFingerTip.y < landmarks[13].y) {
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        // --- منطق التحكم الاحترافي ---
+
+        // 1. وضع المسح: لو السبابة والوسطى والبنصر مرفوعين (كف مفتوح)
+        if (indexTip.y < indexBase.y && middleTip.y < landmarks[9].y && ringTip.y < landmarks[13].y) {
+            clearCanvas();
+            updateUI("جاري المسح...", "#ff4757");
             isDrawing = false;
-        } 
-        // 2. منطق الرسم: إذا كان السبابة فقط مرفوعاً (تبسيط: نقارن السبابة بالوسطى)
-        else if (indexFingerTip.y < indexFingerBase.y) {
+        }
+        // 2. وضع الرسم: لو السبابة فقط مرفوع (والوسطى مطوي)
+        else if (indexTip.y < indexBase.y && middleTip.y > landmarks[9].y) {
+            updateUI("وضع الرسم ✎", "#00f2ff");
+            
             if (!isDrawing) {
                 isDrawing = true;
                 [lastX, lastY] = [x, y];
             }
-            draw(x, y);
-        } else {
+
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(lastX, lastY);
+            canvasCtx.lineTo(x, y);
+            canvasCtx.stroke();
+            [lastX, lastY] = [x, y];
+        } 
+        // 3. وضع الانتظار
+        else {
+            updateUI("في انتظار إشارة إيدك...", "#fff");
             isDrawing = false;
         }
     }
 }
 
-// دالة الرسم على الـ Canvas
-function draw(x, y) {
-    canvasCtx.beginPath();
-    canvasCtx.strokeStyle = '#00ffcc'; // لون الرسم
-    canvasCtx.lineWidth = 5;
-    canvasCtx.lineCap = 'round';
-    canvasCtx.moveTo(lastX, lastY);
-    canvasCtx.lineTo(x, y);
-    canvasCtx.stroke();
-    [lastX, lastY] = [x, y];
+function updateUI(text, color) {
+    if (modeText) {
+        modeText.innerText = text;
+        modeText.style.color = color;
+    }
 }
 
-// إعداد مكتبة Hands
+// إعداد MediaPipe Hands
 const hands = new Hands({
     locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
 });
@@ -67,13 +96,13 @@ const hands = new Hands({
 hands.setOptions({
     maxNumHands: 1,
     modelComplexity: 1,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
+    minDetectionConfidence: 0.75,
+    minTrackingConfidence: 0.75
 });
 
 hands.onResults(onResults);
 
-// تشغيل الكاميرا
+// تشغيل الكاميرا مع دعم الموبايل
 const camera = new Camera(videoElement, {
     onFrame: async () => {
         await hands.send({image: videoElement});
@@ -81,4 +110,8 @@ const camera = new Camera(videoElement, {
     width: 1280,
     height: 720
 });
-camera.start();
+
+camera.start().catch(err => {
+    console.error("Camera Error: ", err);
+    alert("تأكد من إعطاء صلاحية الكاميرا وفتح الرابط عبر HTTPS");
+});
