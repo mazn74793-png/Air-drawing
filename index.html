@@ -3,66 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mazen Cyber-Interface 2026</title>
+    <title>Mazen Cyber-Interface</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
     <style>
         :root { --neon: #00f2ff; --pink: #ff00ff; --glass: rgba(255, 255, 255, 0.1); }
-        body { margin: 0; overflow: hidden; background: #020202; font-family: 'Orbitron', sans-serif; color: white; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; color: white; }
         
-        #webcam { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); z-index: 1; filter: contrast(1.2) brightness(0.5); }
+        #webcam { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); z-index: 1; filter: brightness(0.4); }
         #canvas { position: absolute; width: 100%; height: 100%; z-index: 5; transform: scaleX(-1); }
 
-        /* الأجسام القابلة للسحب */
-        .floating-object {
-            position: absolute; width: 100px; height: 100px; 
-            border: 2px solid var(--neon); background: rgba(0, 242, 255, 0.2);
-            box-shadow: 0 0 20px var(--neon); border-radius: 15px;
-            z-index: 10; pointer-events: none; display: flex; justify-content: center; align-items: center;
-            font-weight: bold; text-transform: uppercase; font-size: 10px;
-            transition: transform 0.1s ease-out;
+        /* شاشة البداية */
+        #welcome-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: 0.8s;
         }
 
-        /* القائمة الجانبية (Selector) */
-        .mode-selector {
-            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
-            display: flex; flex-direction: column; gap: 20px; z-index: 20;
+        .cyber-card {
+            border: 2px solid var(--neon); padding: 30px; border-radius: 20px;
+            background: rgba(0, 242, 255, 0.05); text-align: center; box-shadow: 0 0 20px var(--neon);
         }
-        .mode-card {
-            background: var(--glass); backdrop-filter: blur(10px); padding: 15px;
-            border-radius: 12px; border: 1px solid rgba(255,255,255,0.2);
-            transition: 0.3s; width: 120px; text-align: center; cursor: pointer;
-        }
-        .mode-card.active { border-color: var(--neon); box-shadow: 0 0 15px var(--neon); background: rgba(0, 242, 255, 0.1); }
 
-        /* واجهة البيانات (HUD) */
-        .hud-top {
-            position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-around;
-            z-index: 20; pointer-events: none;
+        /* مكعبات البيانات (تقدر تمسكها) */
+        .data-cube {
+            position: absolute; width: 80px; height: 80px; 
+            border: 2px solid var(--neon); background: rgba(0, 242, 255, 0.1);
+            z-index: 10; display: flex; justify-content: center; align-items: center;
+            font-size: 10px; font-weight: bold; border-radius: 10px;
+            box-shadow: 0 0 15px var(--neon); pointer-events: none;
         }
-        .hud-box { background: var(--glass); padding: 10px 20px; border-radius: 5px; border-bottom: 2px solid var(--neon); }
 
-        .grab-effect { border-color: var(--pink) !important; box-shadow: 0 0 30px var(--pink) !important; scale: 1.1; }
+        .grabbing { border-color: var(--pink) !important; box-shadow: 0 0 30px var(--pink) !important; scale: 1.2; }
+
+        .hud { position: absolute; top: 20px; right: 20px; z-index: 20; background: var(--glass); padding: 10px 20px; border-radius: 10px; border-right: 4px solid var(--neon); backdrop-filter: blur(10px); }
     </style>
 </head>
 <body>
 
-    <div class="hud-top">
-        <div class="hud-box">SYSTEM: ONLINE</div>
-        <div class="hud-box">USER: MAZEN_DEV</div>
-        <div class="hud-box" id="gesture-name">SCANNING...</div>
+    <div id="welcome-overlay">
+        <div class="cyber-card">
+            <h1 style="color: var(--neon);">MAZEN OS v3.0</h1>
+            <p>1. ارفع السبابة للرسم ✍️</p>
+            <p>2. قَرّب الإبهام والسبابة لتمسك المكعبات 🤏</p>
+            <p>3. اليد الأخرى تغير الألوان تلقائياً 🌈</p>
+            <button onclick="startSystem()" style="background: var(--neon); border: none; padding: 12px 30px; border-radius: 10px; font-weight: bold; cursor: pointer;">تشغيل النظام</button>
+        </div>
     </div>
 
-    <div class="mode-selector">
-        <div class="mode-card active" id="mode-draw">DRAW MODE</div>
-        <div class="mode-card" id="mode-grab">GRAB MODE</div>
-        <div class="mode-card" id="mode-vfx">VFX MODE</div>
-    </div>
+    <div class="hud">SYSTEM STATUS: <span id="mode">WAITING...</span></div>
 
-    <div id="box1" class="floating-object" style="top: 20%; left: 20%;">DATA_CORE_01</div>
-    <div id="box2" class="floating-object" style="top: 20%; left: 60%; border-color: var(--pink);">DATA_CORE_02</div>
+    <div id="cube1" class="data-cube" style="top: 30%; left: 30%;">CORE_01</div>
+    <div id="cube2" class="data-cube" style="top: 50%; left: 60%; border-color: var(--pink); box-shadow: 0 0 15px var(--pink);">CORE_02</div>
 
     <video id="webcam" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
@@ -71,12 +65,16 @@
         const videoElement = document.getElementById('webcam');
         const canvasElement = document.getElementById('canvas');
         const canvasCtx = canvasElement.getContext('2d');
-        const boxes = [document.getElementById('box1'), document.getElementById('box2')];
+        const cubes = [document.getElementById('cube1'), document.getElementById('cube2')];
         
-        let currentMode = 'DRAW'; // Modes: DRAW, GRAB, VFX
+        let grabbedCube = null;
         let isDrawing = false;
-        let lastX = 0, lastY = 0;
-        let grabbedBox = null;
+        let lastX, lastY;
+
+        function startSystem() {
+            document.getElementById('welcome-overlay').style.opacity = '0';
+            setTimeout(() => document.getElementById('welcome-overlay').style.display = 'none', 800);
+        }
 
         function init() {
             canvasElement.width = window.innerWidth;
@@ -91,50 +89,29 @@
             if (!results.multiHandLandmarks) return;
 
             results.multiHandLandmarks.forEach((landmarks, index) => {
-                const isRightHand = results.multiHandedness[index].label === "Right";
-                const isLeftHand = results.multiHandedness[index].label === "Left";
+                const thumb = landmarks[4];
+                const indexF = landmarks[8];
+                
+                // تحويل الإحداثيات للشاشة (Mirroring)
+                const x = (1 - indexF.x) * window.innerWidth;
+                const y = indexF.y * window.innerHeight;
 
-                const thumbTip = landmarks[4];
-                const indexTip = landmarks[8];
-                const middleTip = landmarks[12];
-                const pinkyTip = landmarks[20];
+                // حساب المسافة بين الإبهام والسبابة (للإمساك)
+                const distance = Math.hypot(thumb.x - indexF.x, thumb.y - indexF.y);
 
-                // تحويل الإحداثيات (مع مراعاة الـ Mirror)
-                const x = (1 - indexTip.x) * window.innerWidth;
-                const y = indexTip.y * window.innerHeight;
-
-                // 1. منطق تغيير المود (اليد اليسرى تفتح القائمة)
-                if (isLeftHand) {
-                    if (pinkyTip.y < landmarks[18].y && indexTip.y > landmarks[6].y) {
-                        currentMode = 'VFX';
-                        updateModeUI('mode-vfx');
-                    } else if (indexTip.y < landmarks[6].y && middleTip.y < landmarks[10].y) {
-                        currentMode = 'GRAB';
-                        updateModeUI('mode-grab');
-                    } else if (indexTip.y < landmarks[6].y) {
-                        currentMode = 'DRAW';
-                        updateModeUI('mode-draw');
-                    }
-                }
-
-                // 2. تنفيذ المهام (اليد اليمنى)
-                if (isRightHand) {
-                    document.getElementById('gesture-name').innerText = `MODE: ${currentMode}`;
-
-                    if (currentMode === 'DRAW') {
-                        if (indexTip.y < landmarks[6].y && middleTip.y > landmarks[10].y) {
-                            draw(x, y);
-                        } else { isDrawing = false; }
-                    } 
-                    
-                    else if (currentMode === 'GRAB') {
-                        // حركة الـ Pinch (تقريب الإبهام والسبابة) للتمسك
-                        const dist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
-                        if (dist < 0.05) {
-                            grabObject(x, y);
-                        } else {
-                            releaseObject();
-                        }
+                // 1. ميزة الإمساك (Grab) - لو المسافة صغيرة جداً
+                if (distance < 0.05) {
+                    document.getElementById('mode').innerText = "GRABBING MODE";
+                    checkGrab(x, y);
+                } else {
+                    releaseGrab();
+                    // 2. ميزة الرسم (لو السبابة مرفوعة والمسافة كبيرة)
+                    if (indexF.y < landmarks[6].y) {
+                        document.getElementById('mode').innerText = "DRAWING MODE";
+                        draw(x, y);
+                    } else {
+                        isDrawing = false;
+                        document.getElementById('mode').innerText = "SCANNING...";
                     }
                 }
             });
@@ -153,205 +130,33 @@
             [lastX, lastY] = [x, y];
         }
 
-        function grabObject(x, y) {
-            boxes.forEach(box => {
-                const rect = box.getBoundingClientRect();
-                // نعدل الإحداثيات لتناسب الـ Mirror
+        function checkGrab(x, y) {
+            cubes.forEach(cube => {
+                const rect = cube.getBoundingClientRect();
                 if (x > rect.left && x < rect.right && y > rect.top && y < rect.bottom) {
-                    grabbedBox = box;
-                    box.classList.add('grab-effect');
+                    grabbedCube = cube;
+                    cube.classList.add('grabbing');
                 }
             });
 
-            if (grabbedBox) {
-                grabbedBox.style.left = `${x - 50}px`;
-                grabbedBox.style.top = `${y - 50}px`;
+            if (grabbedCube) {
+                grabbedCube.style.left = `${x - 40}px`;
+                grabbedCube.style.top = `${y - 40}px`;
             }
         }
 
-        function releaseObject() {
-            if (grabbedBox) grabbedBox.classList.remove('grab-effect');
-            grabbedBox = null;
-        }
-
-        function updateModeUI(activeId) {
-            document.querySelectorAll('.mode-card').forEach(card => card.classList.remove('active'));
-            document.getElementById(activeId).classList.add('active');
+        function releaseGrab() {
+            if (grabbedCube) grabbedCube.classList.remove('grabbing');
+            grabbedCube = null;
         }
 
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.8, minTrackingConfidence: 0.8 });
+        hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
         hands.onResults(onResults);
 
         const camera = new Camera(videoElement, {
             onFrame: async () => { await hands.send({image: videoElement}); },
             width: 1280, height: 720
-        });
-        camera.start();
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mazen VFX Magic | مازن الخزعبلاتي</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-
-    <style>
-        :root { --neon: #00f2ff; --pink: #ff00ff; --gold: #ffd700; }
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; color: white; }
-        
-        #webcam { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); z-index: 1; filter: brightness(0.6); }
-        #canvas { position: absolute; width: 100%; height: 100%; z-index: 2; transform: scaleX(-1); }
-
-        /* شاشة التعليمات */
-        #tutorial {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            text-align: center; padding: 20px; transition: 0.5s;
-        }
-        .step { margin: 15px; padding: 15px; border: 1px solid var(--neon); border-radius: 15px; width: 280px; }
-
-        /* تأثيرات النصوص الخزعبلية */
-        .vfx-text {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
-            font-size: 5rem; font-weight: 900; z-index: 100; pointer-events: none;
-            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .vfx-text.active { transform: translate(-50%, -50%) scale(1.2); text-shadow: 0 0 30px currentColor; }
-
-        /* زر البدء */
-        .start-btn {
-            background: var(--neon); color: black; border: none; padding: 15px 40px;
-            font-size: 1.2rem; font-weight: bold; border-radius: 30px; cursor: pointer; margin-top: 20px;
-        }
-
-        .hud {
-            position: absolute; top: 20px; left: 20px; z-index: 10;
-            background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
-            padding: 15px; border-radius: 15px; border-left: 4px solid var(--neon);
-        }
-    </style>
-</head>
-<body>
-
-    <div id="tutorial">
-        <h1 style="color: var(--neon);">أهلاً بك في عالم مازن VFX 🚀</h1>
-        <div class="step">☝️ <b>إصبع واحد:</b> ارسم بنور النيون</div>
-        <div class="step">✌️ <b>إصبعين (Peace):</b> ترحيب خزعبلاتي</div>
-        <div class="step">🖐️ <b>كف كامل:</b> مسح الشاشة بالليزر</div>
-        <div class="step">🤘 <b>علامة Rock:</b> وضع الـ Party 🌈</div>
-        <button class="start-btn" onclick="startApp()">ابدأ السحر ✨</button>
-    </div>
-
-    <div id="vfx-container">
-        <div id="msg-hi" class="vfx-text" style="color: var(--neon);">HI MAZEN! ✌️</div>
-        <div id="msg-party" class="vfx-text" style="color: var(--pink);">PARTY TIME! 🤘</div>
-    </div>
-
-    <div class="hud">
-        <div id="status">جاري التجهيز...</div>
-        <div id="gesture-hint" style="font-size: 12px; margin-top: 5px; opacity: 0.7;">بانتظار حركات إيدك...</div>
-    </div>
-
-    <video id="webcam" autoplay playsinline muted></video>
-    <canvas id="canvas"></canvas>
-
-    <script>
-        const videoElement = document.getElementById('webcam');
-        const canvasElement = document.getElementById('canvas');
-        const canvasCtx = canvasElement.getContext('2d');
-        const statusText = document.getElementById('status');
-
-        let isDrawing = false;
-        let lastX = 0, lastY = 0;
-        let hue = 0;
-        let partyMode = false;
-
-        function startApp() {
-            document.getElementById('tutorial').style.opacity = '0';
-            setTimeout(() => document.getElementById('tutorial').style.display = 'none', 500);
-        }
-
-        function init() {
-            canvasElement.width = window.innerWidth;
-            canvasElement.height = window.innerHeight;
-            canvasCtx.lineCap = 'round';
-            canvasCtx.lineJoin = 'round';
-        }
-        window.addEventListener('resize', init);
-        init();
-
-        function showVFX(id) {
-            const el = document.getElementById(id);
-            el.classList.add('active');
-            setTimeout(() => el.classList.remove('active'), 1500);
-        }
-
-        function onResults(results) {
-            statusText.innerText = "النظام يعمل ✅";
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height, 0.1); // مسح خفيف لعمل تأثير "تلاشي"
-
-            if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
-
-            const hand = results.multiHandLandmarks[0];
-            const landmarks = hand;
-            
-            // الأصابع
-            const indexUp = landmarks[8].y < landmarks[6].y;
-            const middleUp = landmarks[12].y < landmarks[10].y;
-            const ringUp = landmarks[16].y < landmarks[14].y;
-            const pinkyUp = landmarks[20].y < landmarks[18].y;
-
-            const x = landmarks[8].x * canvasElement.width;
-            const y = landmarks[8].y * canvasElement.height;
-
-            // 1. حالة "HI MAZEN" (السبابة والوسطى فقط)
-            if (indexUp && middleUp && !ringUp && !pinkyUp) {
-                showVFX('msg-hi');
-                isDrawing = false;
-            }
-            // 2. حالة "Party Mode" (السبابة والخنصر مرفوعين - Rock Sign)
-            else if (indexUp && pinkyUp && !middleUp && !ringUp) {
-                showVFX('msg-party');
-                partyMode = true;
-                isDrawing = false;
-            }
-            // 3. حالة "المسح" (كل الأصابع مرفوعة)
-            else if (indexUp && middleUp && ringUp && pinkyUp) {
-                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-                isDrawing = false;
-                partyMode = false;
-            }
-            // 4. حالة "الرسم" (السبابة فقط)
-            else if (indexUp) {
-                if (!isDrawing) { isDrawing = true; [lastX, lastY] = [x, y]; }
-                
-                hue = partyMode ? (hue + 10) % 360 : 190; // لو بارتي مود يغير ألوان
-                canvasCtx.beginPath();
-                canvasCtx.strokeStyle = `hsl(${hue}, 100%, 50%)`;
-                canvasCtx.lineWidth = partyMode ? 15 : 6;
-                canvasCtx.shadowBlur = 20;
-                canvasCtx.shadowColor = `hsl(${hue}, 100%, 50%)`;
-                canvasCtx.moveTo(lastX, lastY);
-                canvasCtx.lineTo(x, y);
-                canvasCtx.stroke();
-                [lastX, lastY] = [x, y];
-            } else {
-                isDrawing = false;
-            }
-        }
-
-        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
-        hands.onResults(onResults);
-
-        const camera = new Camera(videoElement, {
-            onFrame: async () => { await hands.send({image: videoElement}); },
-            width: 640, height: 480 // تقليل الجودة لزيادة السرعة
         });
         camera.start();
     </script>
