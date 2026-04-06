@@ -3,191 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Air Paint Ultra | Mazen Pro 🚀</title>
+    <title>Mazen VFX Magic | مازن الخزعبلاتي</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 
     <style>
-        :root { 
-            --primary: #00f2ff; 
-            --neon: #ff00ff; 
-            --bg-dark: #050505;
-        }
-
-        body { 
-            margin: 0; 
-            padding: 0;
-            overflow: hidden; 
-            background: var(--bg-dark); 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            color: white; 
-            user-select: none;
-        }
+        :root { --neon: #00f2ff; --pink: #ff00ff; --gold: #ffd700; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; color: white; }
         
-        /* طبقة الكاميرا الخلفية */
-        #webcam { 
-            position: absolute; 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover; 
-            transform: scaleX(-1); 
-            z-index: 1; 
+        #webcam { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); z-index: 1; filter: brightness(0.6); }
+        #canvas { position: absolute; width: 100%; height: 100%; z-index: 2; transform: scaleX(-1); }
+
+        /* شاشة التعليمات */
+        #tutorial {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; padding: 20px; transition: 0.5s;
+        }
+        .step { margin: 15px; padding: 15px; border: 1px solid var(--neon); border-radius: 15px; width: 280px; }
+
+        /* تأثيرات النصوص الخزعبلية */
+        .vfx-text {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+            font-size: 5rem; font-weight: 900; z-index: 100; pointer-events: none;
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .vfx-text.active { transform: translate(-50%, -50%) scale(1.2); text-shadow: 0 0 30px currentColor; }
+
+        /* زر البدء */
+        .start-btn {
+            background: var(--neon); color: black; border: none; padding: 15px 40px;
+            font-size: 1.2rem; font-weight: bold; border-radius: 30px; cursor: pointer; margin-top: 20px;
         }
 
-        /* لوحة الرسم الأمامية */
-        #canvas { 
-            position: absolute; 
-            width: 100%; 
-            height: 100%; 
-            z-index: 2; 
-            transform: scaleX(-1); 
-            touch-action: none; 
+        .hud {
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+            padding: 15px; border-radius: 15px; border-left: 4px solid var(--neon);
         }
-
-        /* رسالة الترحيب "Hi Mazen" */
-        #welcome-msg {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%) scale(0);
-            font-size: clamp(3rem, 10vw, 6rem); 
-            font-weight: 900; 
-            color: var(--primary);
-            text-shadow: 0 0 20px var(--primary), 0 0 50px var(--primary); 
-            z-index: 100;
-            transition: 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            pointer-events: none;
-            text-align: center;
-            white-space: nowrap;
-        }
-
-        #welcome-msg.show { 
-            transform: translate(-50%, -50%) scale(1); 
-        }
-
-        /* لوحة التحكم العلوية (Status) */
-        .ui-panel {
-            position: absolute; 
-            top: 20px; 
-            left: 20px; 
-            z-index: 10;
-            background: rgba(0,0,0,0.75); 
-            padding: 15px 25px; 
-            border-radius: 20px;
-            border-left: 5px solid var(--primary); 
-            backdrop-filter: blur(15px);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .thickness-label { 
-            font-size: 13px; 
-            font-weight: bold; 
-            margin-top: 10px; 
-            display: block; 
-            opacity: 0.8;
-        }
-
-        .thickness-indicator {
-            width: 160px; 
-            height: 8px; 
-            background: #222; 
-            border-radius: 10px; 
-            margin-top: 5px; 
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        #thickness-bar { 
-            width: 50%; 
-            height: 100%; 
-            background: linear-gradient(90deg, var(--primary), #fff); 
-            transition: 0.15s ease-out; 
-        }
-
-        /* شريط الأدوات السفلي */
-        .toolbar {
-            position: absolute; 
-            bottom: 30px; 
-            left: 50%; 
-            transform: translateX(-50%);
-            z-index: 10; 
-            display: flex; 
-            gap: 15px; 
-            background: rgba(0,0,0,0.8);
-            padding: 12px 25px; 
-            border-radius: 50px; 
-            border: 1px solid rgba(255,255,255,0.2);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
-            backdrop-filter: blur(10px);
-        }
-
-        .btn-action {
-            background: white; 
-            color: black; 
-            border: none; 
-            padding: 10px 24px;
-            border-radius: 30px; 
-            font-weight: bold; 
-            cursor: pointer; 
-            transition: 0.3s;
-            font-size: 14px;
-        }
-
-        .btn-action:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(255,255,255,0.3); }
-        .btn-action:active { transform: scale(0.9); }
-
-        /* شاشة التحميل الذكية */
-        #loading {
-            position: fixed; 
-            inset: 0; 
-            background: var(--bg-dark); 
-            z-index: 1000;
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center;
-        }
-
-        .loader-ring {
-            width: 60px;
-            height: 60px;
-            border: 5px solid rgba(255,255,255,0.1);
-            border-top: 5px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div id="loading">
-        <div class="loader-ring"></div>
-        <p style="margin-top: 20px; letter-spacing: 1px; font-weight: 300;">INITIALIZING MAZEN ULTRA AI...</p>
+    <div id="tutorial">
+        <h1 style="color: var(--neon);">أهلاً بك في عالم مازن VFX 🚀</h1>
+        <div class="step">☝️ <b>إصبع واحد:</b> ارسم بنور النيون</div>
+        <div class="step">✌️ <b>إصبعين (Peace):</b> ترحيب خزعبلاتي</div>
+        <div class="step">🖐️ <b>كف كامل:</b> مسح الشاشة بالليزر</div>
+        <div class="step">🤘 <b>علامة Rock:</b> وضع الـ Party 🌈</div>
+        <button class="start-btn" onclick="startApp()">ابدأ السحر ✨</button>
     </div>
 
-    <div id="welcome-msg">HI MAZEN! ✌️</div>
-
-    <div class="ui-panel">
-        <div id="status" style="color: var(--primary); font-weight: bold; font-size: 1.1rem;">جاري تفعيل الحواس...</div>
-        <span class="thickness-label">سُمك الخط (اليد اليسرى 🤏):</span>
-        <div class="thickness-indicator">
-            <div id="thickness-bar"></div>
-        </div>
+    <div id="vfx-container">
+        <div id="msg-hi" class="vfx-text" style="color: var(--neon);">HI MAZEN! ✌️</div>
+        <div id="msg-party" class="vfx-text" style="color: var(--pink);">PARTY TIME! 🤘</div>
     </div>
 
-    <div class="toolbar">
-        <button class="btn-action" onclick="clearCanvas()">مسح الشاشة</button>
-        <button class="btn-action" style="background: var(--primary);" onclick="downloadImage()">حفظ اللوحة ✨</button>
+    <div class="hud">
+        <div id="status">جاري التجهيز...</div>
+        <div id="gesture-hint" style="font-size: 12px; margin-top: 5px; opacity: 0.7;">بانتظار حركات إيدك...</div>
     </div>
 
     <video id="webcam" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
 
-    <script src="script.js"></script>
+    <script>
+        const videoElement = document.getElementById('webcam');
+        const canvasElement = document.getElementById('canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const statusText = document.getElementById('status');
 
+        let isDrawing = false;
+        let lastX = 0, lastY = 0;
+        let hue = 0;
+        let partyMode = false;
+
+        function startApp() {
+            document.getElementById('tutorial').style.opacity = '0';
+            setTimeout(() => document.getElementById('tutorial').style.display = 'none', 500);
+        }
+
+        function init() {
+            canvasElement.width = window.innerWidth;
+            canvasElement.height = window.innerHeight;
+            canvasCtx.lineCap = 'round';
+            canvasCtx.lineJoin = 'round';
+        }
+        window.addEventListener('resize', init);
+        init();
+
+        function showVFX(id) {
+            const el = document.getElementById(id);
+            el.classList.add('active');
+            setTimeout(() => el.classList.remove('active'), 1500);
+        }
+
+        function onResults(results) {
+            statusText.innerText = "النظام يعمل ✅";
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height, 0.1); // مسح خفيف لعمل تأثير "تلاشي"
+
+            if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
+
+            const hand = results.multiHandLandmarks[0];
+            const landmarks = hand;
+            
+            // الأصابع
+            const indexUp = landmarks[8].y < landmarks[6].y;
+            const middleUp = landmarks[12].y < landmarks[10].y;
+            const ringUp = landmarks[16].y < landmarks[14].y;
+            const pinkyUp = landmarks[20].y < landmarks[18].y;
+
+            const x = landmarks[8].x * canvasElement.width;
+            const y = landmarks[8].y * canvasElement.height;
+
+            // 1. حالة "HI MAZEN" (السبابة والوسطى فقط)
+            if (indexUp && middleUp && !ringUp && !pinkyUp) {
+                showVFX('msg-hi');
+                isDrawing = false;
+            }
+            // 2. حالة "Party Mode" (السبابة والخنصر مرفوعين - Rock Sign)
+            else if (indexUp && pinkyUp && !middleUp && !ringUp) {
+                showVFX('msg-party');
+                partyMode = true;
+                isDrawing = false;
+            }
+            // 3. حالة "المسح" (كل الأصابع مرفوعة)
+            else if (indexUp && middleUp && ringUp && pinkyUp) {
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                isDrawing = false;
+                partyMode = false;
+            }
+            // 4. حالة "الرسم" (السبابة فقط)
+            else if (indexUp) {
+                if (!isDrawing) { isDrawing = true; [lastX, lastY] = [x, y]; }
+                
+                hue = partyMode ? (hue + 10) % 360 : 190; // لو بارتي مود يغير ألوان
+                canvasCtx.beginPath();
+                canvasCtx.strokeStyle = `hsl(${hue}, 100%, 50%)`;
+                canvasCtx.lineWidth = partyMode ? 15 : 6;
+                canvasCtx.shadowBlur = 20;
+                canvasCtx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+                canvasCtx.moveTo(lastX, lastY);
+                canvasCtx.lineTo(x, y);
+                canvasCtx.stroke();
+                [lastX, lastY] = [x, y];
+            } else {
+                isDrawing = false;
+            }
+        }
+
+        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+        hands.onResults(onResults);
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 640, height: 480 // تقليل الجودة لزيادة السرعة
+        });
+        camera.start();
+    </script>
 </body>
 </html>
