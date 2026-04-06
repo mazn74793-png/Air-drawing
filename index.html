@@ -11,20 +11,21 @@
     <style>
         :root {
             --primary: #00f2ff;
-            --secondary: #70a1ff;
             --accent: #2ed573;
             --danger: #ff4757;
+            --bg-glass: rgba(0, 0, 0, 0.7);
         }
 
         body {
             margin: 0;
             overflow: hidden;
             background: #000;
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: white;
+            user-select: none;
         }
 
-        /* حاوية الكاميرا واللوحة */
+        /* حاوية الفيديو واللوحة */
         #webcam {
             position: absolute;
             width: 100%;
@@ -40,15 +41,16 @@
             height: 100%;
             z-index: 2;
             transform: scaleX(-1);
+            touch-action: none;
         }
 
-        /* رسالة الترحيب "Hi Mazen" */
+        /* رسالة HI MAZEN الجامدة */
         #welcome-msg {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0);
-            font-size: 4rem;
+            font-size: 5rem;
             font-weight: 900;
             color: var(--primary);
             text-shadow: 0 0 20px var(--primary), 0 0 40px var(--primary);
@@ -62,7 +64,7 @@
             transform: translate(-50%, -50%) scale(1);
         }
 
-        /* شريط الأدوات */
+        /* شريط الأدوات السفلي */
         .toolbar {
             position: absolute;
             bottom: 30px;
@@ -71,18 +73,18 @@
             z-index: 10;
             display: flex;
             align-items: center;
-            gap: 12px;
-            background: rgba(0, 0, 0, 0.7);
+            gap: 15px;
+            background: var(--bg-glass);
             backdrop-filter: blur(15px);
-            padding: 12px 20px;
+            padding: 12px 25px;
             border-radius: 50px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
         .color-dot {
-            width: 30px;
-            height: 30px;
+            width: 35px;
+            height: 35px;
             border-radius: 50%;
             cursor: pointer;
             border: 2px solid #fff;
@@ -95,45 +97,70 @@
             background: white;
             color: black;
             border: none;
-            padding: 8px 16px;
+            padding: 10px 20px;
             border-radius: 20px;
             font-weight: bold;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 14px;
+            transition: 0.2s;
         }
 
-        /* حالة النظام */
+        .btn-action:hover { opacity: 0.9; }
+
+        /* حالة النظام العلوية */
         .status-bar {
             position: absolute;
             top: 20px;
             left: 20px;
             z-index: 10;
-            background: rgba(0,0,0,0.6);
-            padding: 10px 20px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(10px);
+            padding: 12px 25px;
             border-radius: 15px;
-            border-right: 4px solid var(--primary);
+            border-right: 5px solid var(--primary);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
 
+        #status-text { color: var(--primary); font-weight: bold; font-size: 1.1rem; }
+
+        /* شاشة التحميل */
         #loading {
             position: fixed;
             inset: 0;
             background: #000;
             z-index: 1000;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            font-size: 1.2rem;
+            font-size: 1.5rem;
         }
+
+        .loader {
+            border: 4px solid #333;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div id="loading">جاري تشغيل الذكاء الاصطناعي... 🚀</div>
+    <div id="loading">
+        <div class="loader"></div>
+        <p>جاري تجهيز بيئة الذكاء الاصطناعي... 🚀</p>
+    </div>
+
     <div id="welcome-msg">HI MAZEN! ✌️</div>
 
     <div class="status-bar">
-        <div id="status-text" style="color: var(--primary); font-weight: bold;">انتظار اليد...</div>
-        <small>ارفع السبابة للرسم | السبابة والوسطى للترحيب</small>
+        <div id="status-text">بدء النظام...</div>
+        <small style="opacity: 0.7;">سبابة: رسم | صباعين: ترحيب | كف: مسح</small>
     </div>
 
     <div class="toolbar">
@@ -141,7 +168,7 @@
         <div class="color-dot" style="background: #ff4757;" onclick="changeColor('#ff4757')"></div>
         <div class="color-dot" style="background: #2ed573;" onclick="changeColor('#2ed573')"></div>
         <div class="color-dot" style="background: #ffa502;" onclick="changeColor('#ffa502')"></div>
-        <div style="width: 1px; height: 25px; background: rgba(255,255,255,0.3); margin: 0 5px;"></div>
+        <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.2); margin: 0 10px;"></div>
         <button class="btn-action" onclick="clearCanvas()">مسح</button>
         <button class="btn-action" style="background: var(--primary);" onclick="downloadImage()">حفظ ✨</button>
     </div>
@@ -161,16 +188,19 @@
         let lastX = 0, lastY = 0;
         let currentColor = '#00f2ff';
 
+        // تهيئة الشاشة
         function init() {
             canvasElement.width = window.innerWidth;
             canvasElement.height = window.innerHeight;
             canvasCtx.lineCap = 'round';
             canvasCtx.lineJoin = 'round';
-            canvasCtx.shadowBlur = 8;
+            canvasCtx.shadowBlur = 10;
+            canvasCtx.shadowColor = currentColor;
         }
         window.addEventListener('resize', init);
         init();
 
+        // دوال التحكم
         function changeColor(color) { 
             currentColor = color; 
             canvasCtx.shadowColor = color;
@@ -187,41 +217,51 @@
             link.click();
         }
 
+        // معالجة نتائج الذكاء الاصطناعي
         function onResults(results) {
-            if (loadingScreen) loadingScreen.style.display = 'none';
+            if (loadingScreen.style.display !== 'none') loadingScreen.style.display = 'none';
 
             if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
                 welcomeMsg.classList.remove('show');
-                statusText.innerText = "لا توجد يد في الكاميرا";
+                statusText.innerText = "في انتظار ظهور يدك...";
                 return;
             }
 
             const hand = results.multiHandLandmarks[0];
-            const indexTip = hand[8];   // طرف السبابة
-            const indexBase = hand[5];  // قاعدة السبابة
-            const middleTip = hand[12]; // طرف الوسطى
-            const ringTip = hand[16];   // طرف البنصر
-            const pinkyTip = hand[20];  // طرف الخنصر
+            
+            // نقاط الأصابع المهمة
+            const indexTip = hand[8];   
+            const indexBase = hand[5];  
+            const middleTip = hand[12]; 
+            const ringTip = hand[16];   
+            const pinkyTip = hand[20];  
 
             const x = indexTip.x * canvasElement.width;
             const y = indexTip.y * canvasElement.height;
 
-            // --- اكتشاف الإيماءات ---
+            // كشف الحالات
             const isIndexUp = indexTip.y < indexBase.y;
             const isMiddleUp = middleTip.y < hand[9].y;
-            const isRingDown = ringTip.y > hand[14].y;
-            const isPinkyDown = pinkyTip.y > hand[18].y;
+            const isRingUp = ringTip.y < hand[13].y;
+            const isPinkyUp = pinkyTip.y < hand[17].y;
 
-            // 1. إيماءة السلام (Hi Mazen)
-            if (isIndexUp && isMiddleUp && isRingDown && isPinkyDown) {
+            // 1. حالة المسح (كف اليد مفتوح بالكامل)
+            if (isIndexUp && isMiddleUp && isRingUp && isPinkyUp) {
+                clearCanvas();
+                statusText.innerText = "جاري مسح اللوحة... ✨";
+                welcomeMsg.classList.remove('show');
+                isDrawing = false;
+            }
+            // 2. إيماءة السلام (HI MAZEN!) ✌️
+            else if (isIndexUp && isMiddleUp && !isRingUp) {
                 welcomeMsg.classList.add('show');
-                statusText.innerText = "أهلاً مازن! ✌️";
+                statusText.innerText = "أهلاً يا مازن! ✌️";
                 isDrawing = false;
             } 
-            // 2. وضع الرسم (السبابة فقط مرفوعة)
+            // 3. وضع الرسم (السبابة فقط)
             else if (isIndexUp && !isMiddleUp) {
                 welcomeMsg.classList.remove('show');
-                statusText.innerText = "جاري الرسم ✎";
+                statusText.innerText = "وضع الرسم ✎";
                 
                 if (!isDrawing) {
                     isDrawing = true;
@@ -230,13 +270,13 @@
 
                 canvasCtx.beginPath();
                 canvasCtx.strokeStyle = currentColor;
-                canvasCtx.lineWidth = 7;
+                canvasCtx.lineWidth = 8;
                 canvasCtx.moveTo(lastX, lastY);
                 canvasCtx.lineTo(x, y);
                 canvasCtx.stroke();
                 [lastX, lastY] = [x, y];
             } 
-            // 3. وضع الانتظار
+            // 4. وضع السكون
             else {
                 welcomeMsg.classList.remove('show');
                 statusText.innerText = "وضع الانتظار";
@@ -244,6 +284,7 @@
             }
         }
 
+        // تشغيل مكتبة Hands
         const hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
@@ -257,6 +298,7 @@
 
         hands.onResults(onResults);
 
+        // تشغيل الكاميرا
         const camera = new Camera(videoElement, {
             onFrame: async () => { await hands.send({image: videoElement}); },
             width: 1280, height: 720
