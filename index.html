@@ -3,219 +3,339 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MAZEN ULTIMATE HUD | نسخة الوحش</title>
+    <title>AirCanvas Ultra V3 | ميزو فيجن</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap');
-
-        :root { --neon: #00f2ff; --pink: #ff00ff; --yellow: #ffff00; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Orbitron', sans-serif; }
-        
-        /* الكاميرا بخلفية سينمائية */
-        #webcam { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); z-index: 1; filter: brightness(0.5) contrast(1.2) saturate(1.5); }
-        #canvas { position: absolute; width: 100%; height: 100%; z-index: 5; transform: scaleX(-1); pointer-events: none; }
-
-        /* شاشة التحميل "الماتريكس" */
-        #loading-screen {
-            position: fixed; inset: 0; background: #000; z-index: 1000;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            transition: 1s ease-in-out;
+        :root {
+            --neon: #00f2fe;
+            --accent: #ff007f;
+            --glass: rgba(5, 10, 20, 0.8);
+            --font: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
-        .glitch { font-size: 3rem; font-weight: 900; color: var(--neon); text-transform: uppercase; position: relative; text-shadow: 0.05em 0 0 rgba(255,0,0,.75), -0.025em -0.05em 0 rgba(0,255,0,.75), 0.025em 0.05em 0 rgba(0,0,255,.75); animation: glitch 500ms infinite; }
-        @keyframes glitch { 0% { transform: translate(0); } 20% { transform: translate(-5px, 5px); } 40% { transform: translate(-5px, -5px); } 60% { transform: translate(5px, 5px); } 80% { transform: translate(5px, -5px); } 100% { transform: translate(0); } }
 
-        /* واجهة الـ HUD (البيانات اللي بتتحرك) */
-        .hud-overlay { position: absolute; inset: 0; z-index: 10; pointer-events: none; border: 20px solid rgba(0, 242, 255, 0.05); }
-        .corner { position: absolute; width: 50px; height: 50px; border: 4px solid var(--neon); }
-        .top-left { top: 20px; left: 20px; border-right: 0; border-bottom: 0; }
-        .bottom-right { bottom: 20px; right: 20px; border-left: 0; border-top: 0; }
-        
-        .data-stream { position: absolute; top: 100px; left: 40px; color: var(--neon); font-size: 10px; line-height: 1.5; }
-        
-        /* عناصر تفاعلية (Cyber-Buttons) */
-        .cyber-menu { position: absolute; right: 40px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 20px; pointer-events: auto; }
-        .cyber-btn {
-            background: rgba(0, 242, 255, 0.1); border: 1px solid var(--neon); color: var(--neon);
-            padding: 20px; border-radius: 5px; cursor: pointer; backdrop-filter: blur(10px);
-            transition: 0.3s; text-align: center; font-size: 12px;
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background: #010409; color: white;
+            font-family: var(--font); user-select: none;
         }
-        .cyber-btn.active { background: var(--neon); color: #000; box-shadow: 0 0 20px var(--neon); }
 
-        /* الأجسام الطائرة (3D-like) */
-        .floating-module {
-            position: absolute; width: 120px; height: 120px; 
-            border: 1px solid var(--pink); background: rgba(255, 0, 255, 0.05);
-            z-index: 20; border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center;
-            box-shadow: 0 0 15px var(--pink); font-size: 9px; color: var(--pink);
+        /* حاوية التطبيق */
+        .app-view {
+            position: relative; width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
         }
+
+        /* الكاميرا وطبقات الرسم */
+        video, #output_canvas, #paint_canvas {
+            position: absolute; width: 100%; height: 100%;
+            object-fit: cover; transform: scaleX(-1); /* تأثير المرآة */
+            border-radius: 20px;
+        }
+
+        /* HUD - واجهة المستخدم طائرة */
+        .hud-overlay {
+            position: absolute; width: 95%; height: 90%;
+            pointer-events: none; z-index: 100;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+
+        /* شريط علوي HUD */
+        .hud-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px;
+        }
+
+        .system-title {
+            font-size: 20px; font-weight: bold; color: var(--neon);
+            text-shadow: 0 0 15px var(--neon); letter-spacing: 2px;
+        }
+
+        /* عناصر قابلة للتحريك (UI Elements) */
+        .draggable-ui {
+            pointer-events: auto; /* السماح بالتفاعل */
+            background: var(--glass); backdrop-filter: blur(15px);
+            border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: box-shadow 0.3s, transform 0.1s;
+        }
+
+        /* شريط الألوان القابل للتحريك */
+        .color-bar {
+            position: absolute; top: 100px; left: 50px; /* مكان أولي */
+            padding: 15px; display: flex; gap: 12px; flex-direction: column;
+            cursor: grab;
+        }
+
+        .color-bar.dragging { cursor: grabbing; box-shadow: 0 0 30px var(--neon); opacity: 0.8; }
+
+        .dot { 
+            width: 35px; height: 35px; border-radius: 10px; 
+            cursor: pointer; border: 2px solid rgba(255,255,255,0.2); transition: 0.3s;
+        }
+        .dot.active { transform: scale(1.2); border-color: white; box-shadow: 0 0 15px currentColor; }
+
+        /* الأزرار في الأسفل */
+        .hud-footer {
+            display: flex; justify-content: center; padding: 20px; gap: 20px;
+        }
+
+        .action-btn {
+            pointer-events: auto; background: var(--glass);
+            color: #ccc; border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px 30px; border-radius: 10px; font-weight: bold;
+            cursor: pointer; transition: 0.3s;
+        }
+        .action-btn:hover { color: white; border-color: var(--neon); box-shadow: 0 0 15px var(--neon); }
+
+        /* الكرسور الذكي */
+        #smart-cursor {
+            position: absolute; width: 40px; height: 40px;
+            border: 2px solid var(--neon); border-radius: 50%;
+            pointer-events: none; z-index: 1000;
+            display: none; box-shadow: 0 0 20px var(--neon);
+            mix-blend-mode: difference;
+            transition: width 0.2s, height 0.2s, background 0.2s, border-radius 0.2s;
+        }
+
+        /* أنيميشن التحميل */
+        #loader {
+            position: fixed; inset: 0; background: #010409;
+            display: flex; justify-content: center; align-items: center;
+            z-index: 2000; flex-direction: column; gap: 20px;
+        }
+        .spinner { width: 50px; height: 50px; border: 5px solid rgba(0,242,254,0.1); border-top-color: var(--neon); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div id="loading-screen">
-        <div class="glitch">MAZEN_QUANTUM_OS</div>
-        <p style="color: var(--neon); margin-top: 20px;">LOADING NEURAL INTERFACE...</p>
-        <button onclick="unlockSystem()" style="margin-top: 30px; background: none; border: 1px solid var(--neon); color: var(--neon); padding: 10px 30px; cursor: pointer;">BYPASS SECURITY</button>
+    <div id="loader">
+        <div class="spinner"></div>
+        <div style="color: var(--neon); letter-spacing: 2px;">MIZOO VISION AI</div>
     </div>
 
-    <div class="hud-overlay">
-        <div class="corner top-left"></div>
-        <div class="corner bottom-right"></div>
-        <div class="data-stream" id="stats">
-            > SCANNING ENVIRONMENT...<br>
-            > HAND_TRACKING: ACTIVE<br>
-            > NEURAL_LINK: STABLE<br>
-            > FPS: 60.00
+    <div class="app-view">
+        <video id="webcam" autoplay playsinline></video>
+        <canvas id="paint_canvas"></canvas> <canvas id="output_canvas"></canvas> <div id="smart-cursor"></div>
+
+        <div class="hud-overlay">
+            <div class="hud-header">
+                <div class="system-title">AIR CANVAS <span style="font-size:12px; color:#555">ULTRA V3</span></div>
+                <div id="mode-badge" style="background:var(-- glass); padding:8px 15px; border-radius:10px; font-size:12px; color:var(--accent); border:1px solid var(--accent);">جاري التحميل...</div>
+            </div>
+
+            <div id="color-bar" class="draggable-ui color-bar">
+                <div class="dot active" style="background: #00f2fe; color: #00f2fe" onclick="changeColor('#00f2fe', this)"></div>
+                <div class="dot" style="background: #ff007f; color: #ff007f" onclick="changeColor('#ff007f', this)"></div>
+                <div class="dot" style="background: #00ff88; color: #00ff88" onclick="changeColor('#00ff88', this)"></div>
+                <div class="dot" style="background: #ffffff; color: #ffffff" onclick="changeColor('#ffffff', this)"></div>
+            </div>
+
+            <div class="hud-footer">
+                <button class="action-btn" onclick="clearCanvas()">مسح الشاشة</button>
+            </div>
         </div>
     </div>
 
-    <div class="cyber-menu">
-        <div class="cyber-btn active" id="mode-draw">NEON_DRAW</div>
-        <div class="cyber-btn" id="mode-grab">OBJECT_GRAB</div>
-        <div class="cyber-btn" id="mode-vfx">VFX_BURST</div>
-    </div>
+    <script type="module">
+        import { HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
 
-    <div id="obj1" class="floating-module" style="top: 20%; left: 20%;">[ CORE_ALPHA ]<br>STATUS: READY</div>
-    <div id="obj2" class="floating-module" style="top: 20%; left: 70%; border-color: var(--yellow); color: var(--yellow); box-shadow: 0 0 15px var(--yellow);">[ CORE_BETA ]<br>STATUS: LOCKED</div>
-
-    <video id="webcam" autoplay playsinline muted></video>
-    <canvas id="canvas"></canvas>
-
-    <script>
-        const videoElement = document.getElementById('webcam');
-        const canvasElement = document.getElementById('canvas');
-        const canvasCtx = canvasElement.getContext('2d');
-        const objects = [document.getElementById('obj1'), document.getElementById('obj2')];
+        const video = document.getElementById("webcam");
+        const outCanvas = document.getElementById("output_canvas");
+        const outCtx = outCanvas.getContext("2d");
+        const paintCanvas = document.getElementById("paint_canvas");
+        const paintCtx = paintCanvas.getContext("2d");
         
-        let currentMode = 'DRAW'; // DRAW, GRAB, VFX
-        let grabbedObj = null;
-        let points = []; // للرسم المتطور
-        let hue = 0;
+        // عناصر الـ UI
+        const smartCursor = document.getElementById("smart-cursor");
+        const colorBar = document.getElementById("color-bar");
+        const modeBadge = document.getElementById("mode-badge");
 
-        function unlockSystem() {
-            document.getElementById('loading-screen').style.transform = 'translateY(-100%)';
+        let handLandmarker;
+        let lastVideoTime = -1;
+        let currentColor = "#00f2fe";
+        let lastPaintX, lastPaintY;
+        
+        // متغيرات الجزيئات (Particles)
+        let particles = [];
+
+        // متغيرات الإمساك والتحريك (UI Dragging)
+        let draggedElement = null;
+        let dragOffsetX = 0, dragOffsetY = 0;
+
+        async function init() {
+            try {
+                const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
+                handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                    baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" },
+                    runningMode: "VIDEO", numHands: 1
+                });
+                startCamera();
+            } catch (e) { alert("فشل تحميل الذكاء الاصطناعي. تأكد من إذن الكاميرا."); }
         }
 
-        function init() {
-            canvasElement.width = window.innerWidth;
-            canvasElement.height = window.innerHeight;
+        async function startCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+            video.srcObject = stream;
+            video.addEventListener("loadeddata", () => {
+                paintCanvas.width = outCanvas.width = video.videoWidth;
+                paintCanvas.height = outCanvas.height = video.videoHeight;
+                document.getElementById("loader").style.display = "none";
+                modeBadge.innerText = "جاهز 👋";
+                modeBadge.style.borderColor = "#00ff88"; modeBadge.style.color = "#00ff88";
+                render();
+            });
         }
-        window.addEventListener('resize', init);
-        init();
 
-        function onResults(results) {
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            updateStats();
+        // --- وظائف الـ UI الأصلية ---
+        window.changeColor = (color, el) => {
+            currentColor = color;
+            document.querySelectorAll('.dot').forEach(d => d.classList.remove('active'));
+            el.classList.add('active');
+            smartCursor.style.borderColor = color;
+            smartCursor.style.boxShadow = `0 0 20px ${color}`;
+        };
 
-            if (!results.multiHandLandmarks) return;
+        window.clearCanvas = () => paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
 
-            results.multiHandLandmarks.forEach((landmarks, index) => {
-                const isLeft = results.multiHandedness[index].label === "Left";
-                const thumb = landmarks[4];
-                const indexF = landmarks[8];
-                const middle = landmarks[12];
-                
-                const x = (1 - indexF.x) * window.innerWidth;
-                const y = indexF.y * window.innerHeight;
+        // --- إدارة الجزيئات (Visual FX) ---
+        function createParticles(x, y, color) {
+            for(let i=0; i<3; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.5) * 3,
+                    life: 20, color: color, size: Math.random() * 3 + 1
+                });
+            }
+        }
 
-                // --- رسم دوائر تتبع حول الأصابع (زي الإنستا بالظبط) ---
-                drawTracker(x, y);
+        function updateParticles() {
+            outCtx.save();
+            outCtx.globalCompositeOperation = "lighter";
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.life--; p.size *= 0.97;
+                outCtx.fillStyle = p.color;
+                outCtx.opacity = p.life / 20;
+                outCtx.beginPath(); outCtx.arc(p.x, p.y, Math.max(0, p.size), 0, Math.PI*2); outCtx.fill();
+                if(p.life <= 0) particles.splice(i, 1);
+            });
+            outCtx.restore();
+        }
 
-                // --- منطق اليد اليسرى (تغيير المودات بحركة الأصابع) ---
-                if (isLeft) {
-                    if (indexF.y < landmarks[6].y && middle.y < landmarks[10].y) switchMode('GRAB');
-                    else if (indexF.y < landmarks[6].y) switchMode('DRAW');
-                }
+        // --- الحلقة الأساسية (Render Loop) ---
+        function render() {
+            if (video.currentTime !== lastVideoTime) {
+                lastVideoTime = video.currentTime;
+                const results = handLandmarker.detectForVideo(video, performance.now());
 
-                // --- منطق اليد اليمنى (التنفيذ) ---
-                else {
-                    if (currentMode === 'DRAW' && indexF.y < landmarks[6].y) {
-                        renderNeonDraw(x, y);
-                    } else if (currentMode === 'GRAB') {
-                        const dist = Math.hypot(thumb.x - indexF.x, thumb.y - indexF.y);
-                        if (dist < 0.06) handleGrab(x, y);
-                        else releaseGrab();
+                outCtx.clearRect(0, 0, outCanvas.width, outCanvas.height);
+                updateParticles(); // رسم الجزيئات
+
+                smartCursor.style.display = "none"; // إخفاء مبدئي
+
+                if (results.landmarks && results.landmarks.length > 0) {
+                    const marks = results.landmarks[0];
+                    const index = marks[8]; // السبابة
+                    const thumb = marks[4]; // الإبهام
+                    
+                    // الإحداثيات الحقيقية على الشاشة (لـ HUD)
+                    const screenX = (1 - index.x) * window.innerWidth;
+                    const screenY = index.y * window.innerHeight;
+                    
+                    // الإحداثيات على الكانفاس (للرسوم)
+                    const canvasX = index.x * paintCanvas.width;
+                    const canvasY = index.y * paintCanvas.height;
+
+                    // 1. تحديث وتحريك الكرسور الذكي
+                    smartCursor.style.display = "block";
+                    smartCursor.style.left = `${screenX}px`;
+                    smartCursor.style.top = `${screenY}px`;
+                    createParticles(canvasX, canvasY, currentColor); // جزيئات خلف الكرسور
+
+                    // إعدادات وضع الرسم
+                    paintCtx.lineWidth = 10; paintCtx.lineCap = "round"; paintCtx.shadowBlur = 15; paintCtx.shadowColor = currentColor; paintCtx.strokeStyle = currentColor;
+
+                    // 2. تحديد وضع الإيد (Gesture Detection)
+                    const isIndexUp = index.y < marks[6].y;
+                    const isMiddleUp = marks[12].y < marks[10].y;
+                    const pinchDist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
+
+                    // وضع المسح ✋ (كف مفتوح)
+                    if (isIndexUp && isMiddleUp && marks[16].y < marks[14].y) {
+                        setCursorState("eraser");
+                        paintCtx.clearRect(canvasX - 40, canvasY - 40, 80, 80);
+                        lastPaintX = null; lastPaintY = null;
+                    } 
+                    // وضع الرسم ☝️ (صباع واحد مرفوع)
+                    else if (isIndexUp && !isMiddleUp) {
+                        setCursorState("draw");
+                        if (lastPaintX) {
+                            paintCtx.beginPath(); paintCtx.moveTo(lastPaintX, lastPaintY); paintCtx.lineTo(canvasX, canvasY); paintCtx.stroke();
+                        }
+                        lastPaintX = canvasX; lastPaintY = canvasY;
+                    } 
+                    // وضع الإمساك والتحريك 🤏 (Pinch)
+                    else if (pinchDist < 0.04) {
+                        setCursorState("grab");
+                        handleUIDrag(screenX, screenY); // التعامل مع سحب العناصر
+                        lastPaintX = null; lastPaintY = null;
                     }
-                }
-            });
+                    // وضع الانتظار
+                    else {
+                        setCursorState("default");
+                        releaseUIDrag(); // ترك العناصر
+                        lastPaintX = null; lastPaintY = null;
+                    }
+                } else { releaseUIDrag(); } // إذا اختفت الإيد، اترك العنصر
+            }
+            requestAnimationFrame(render);
         }
 
-        function drawTracker(x, y) {
-            canvasCtx.beginPath();
-            canvasCtx.arc(x, y, 20, 0, Math.PI * 2);
-            canvasCtx.strokeStyle = varColor();
-            canvasCtx.lineWidth = 2;
-            canvasCtx.stroke();
-            // دائرة خارجية بتلف
-            canvasCtx.beginPath();
-            canvasCtx.arc(x, y, 30, hue/50, (hue/50) + 1);
-            canvasCtx.stroke();
-        }
+        // --- وظائف مساعدة جديدة للجمدان ---
 
-        function renderNeonDraw(x, y) {
-            hue = (hue + 2) % 360;
-            points.push({x, y, color: `hsl(${hue}, 100%, 50%)`});
-            if (points.length > 50) points.shift(); // الخط بيختفي تدريجياً (تأثير الليزر)
-
-            for(let i=1; i<points.length; i++) {
-                canvasCtx.beginPath();
-                canvasCtx.strokeStyle = points[i].color;
-                canvasCtx.lineWidth = i/2;
-                canvasCtx.shadowBlur = 10;
-                canvasCtx.shadowColor = points[i].color;
-                canvasCtx.moveTo(points[i-1].x, points[i-1].y);
-                canvasCtx.lineTo(points[i].x, points[i].y);
-                canvasCtx.stroke();
+        // تغيير شكل الكرسور بناءً على الحالة
+        function setCursorState(state) {
+            switch(state) {
+                case "draw":
+                    smartCursor.style.width = "20px"; smartCursor.style.height = "20px"; smartCursor.style.borderRadius = "5px"; smartCursor.style.background = currentColor; break;
+                case "grab":
+                    smartCursor.style.width = "50px"; smartCursor.style.height = "50px"; smartCursor.style.borderRadius = "50%"; smartCursor.style.background = "rgba(255,255,0,0.5)"; break;
+                case "eraser":
+                    smartCursor.style.width = "60px"; smartCursor.style.height = "60px"; smartCursor.style.borderRadius = "10px"; smartCursor.style.background = "rgba(255,0,0,0.5)"; break;
+                default:
+                    smartCursor.style.width = "40px"; smartCursor.style.height = "40px"; smartCursor.style.borderRadius = "50%"; smartCursor.style.background = "none";
             }
         }
 
-        function handleGrab(x, y) {
-            objects.forEach(obj => {
-                const rect = obj.getBoundingClientRect();
+        // منطق إمساك وتحريك الـ UI (Pinch to Drag)
+        function handleUIDrag(x, y) {
+            if (!draggedElement) {
+                // هل نحن فوق شريط الألوان؟
+                const rect = colorBar.getBoundingClientRect();
                 if (x > rect.left && x < rect.right && y > rect.top && y < rect.bottom) {
-                    grabbedObj = obj;
-                    obj.style.borderColor = 'var(--neon)';
-                    obj.style.boxShadow = '0 0 30px var(--neon)';
+                    draggedElement = colorBar;
+                    dragOffsetX = x - rect.left;
+                    dragOffsetY = y - rect.top;
+                    colorBar.classList.add("dragging");
                 }
-            });
-            if (grabbedObj) {
-                grabbedObj.style.left = `${x - 60}px`;
-                grabbedObj.style.top = `${y - 60}px`;
+            } else {
+                // تحريك العنصر الممسوك
+                draggedElement.style.left = `${x - dragOffsetX}px`;
+                draggedElement.style.top = `${y - dragOffsetY}px`;
             }
         }
 
-        function releaseGrab() {
-            if (grabbedObj) {
-                grabbedObj.style.borderColor = '';
-                grabbedObj.style.boxShadow = '';
+        function releaseUIDrag() {
+            if (draggedElement) {
+                draggedElement.classList.remove("dragging");
+                draggedElement = null;
             }
-            grabbedObj = null;
         }
 
-        function switchMode(m) {
-            currentMode = m;
-            document.querySelectorAll('.cyber-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`mode-${m.toLowerCase()}`).classList.add('active');
-        }
-
-        function varColor() { return `hsl(${hue}, 100%, 50%)`; }
-
-        function updateStats() {
-            document.getElementById('stats').innerHTML = `> X: ${Math.floor(Math.random()*100)} Y: ${Math.floor(Math.random()*100)}<br>> MODE: ${currentMode}<br>> SYSTEM_VITAL: STABLE<br>> MAZEN_ID: DEV_747`;
-        }
-
-        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.8, minTrackingConfidence: 0.8 });
-        hands.onResults(onResults);
-
-        const camera = new Camera(videoElement, {
-            onFrame: async () => { await hands.send({image: videoElement}); },
-            width: 1280, height: 720
-        });
-        camera.start();
+        init();
     </script>
 </body>
 </html>
